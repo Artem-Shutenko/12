@@ -1,0 +1,36 @@
+--[=[
+    Деобфусцировано / Исправлено
+    Оригинальная защита: MoonSec V3
+--]=]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- Основная логика оригинального скрипта (Авто-фарм сундуков / Авто-сбор)
+local function teleportTo(position)
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        character.HumanoidRootPart.CFrame = position
+    end
+end
+
+local function collectChests()
+    for _, chest in ipairs(workspace:GetChildren()) do
+        if chest.Name:find("Chest") and chest:IsA("BasePart") then
+            teleportTo(chest.CFrame)
+            task.wait(0.2)
+        end
+    end
+end
+
+-- Безопасный циклический запуск функции
+task.spawn(function()
+    while true do
+        local success, err = pcall(collectChests)
+        if not success then
+            warn("Ошибка выполнения авто-фарма: " .. tostring(err))
+        end
+        task.wait(5)
+    end
+end)
