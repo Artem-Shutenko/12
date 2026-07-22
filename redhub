@@ -1,36 +1,57 @@
---[=[
-    Деобфусцировано / Исправлено
-    Оригинальная защита: MoonSec V3
---]=]
-
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
--- Основная логика оригинального скрипта (Авто-фарм сундуков / Авто-сбор)
-local function teleportTo(position)
+-- Функция безопасной плавной телепортации (обход античита)
+local function safeTeleport(targetCFrame)
     local character = LocalPlayer.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        character.HumanoidRootPart.CFrame = position
-    end
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    -- Считаем расстояние до сундука
+    local distance = (rootPart.Position - targetCFrame.p).Magnitude
+    local speed = 250 -- Безопасная скорость (студов в секунду)
+    local duration = distance / speed
+    
+    -- Создаем плавное перемещение (Tween)
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(rootPart, tweenInfo, {CFrame = targetCFrame})
+    
+    tween:Play()
+    tween.Completed:Wait() -- Ждем окончания полета
 end
 
-local function collectChests()
-    for _, chest in ipairs(workspace:GetChildren()) do
-        if chest.Name:find("Chest") and chest:IsA("BasePart") then
-            teleportTo(chest.CFrame)
-            task.wait(0.2)
+-- Основная функция поиска и сбора сундуков
+local function collectRealChests()
+    -- В Blox Fruits сундуки лежат по всему workspace, ищем рекурсивно
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        -- Проверяем, является ли объект сундуком и можно ли его взять
+        if obj:IsA("BasePart") and obj.Name:find("Chest") and obj.Transparency ~= 1 then
+            
+            -- Проверяем, жив ли еще наш персонаж
+            local character = LocalPlayer.Character
+            if character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0 then
+                
+                -- Летим к сундуку
+                safeTeleport(obj.CFrame)
+                task.wait(0.3) -- Пауза для регистрации сбора сервером
+                
+                -- Если сундук исчез (собрали), ищем следующий
+                if not obj:IsDescendantOf(workspace) or obj.Transparency == 1 then
+                    -- Сундук успешно собран
+                end
+            end
         end
     end
 end
 
--- Безопасный циклический запуск функции
+-- Запуск бесконечного цикла с проверкой ошибок
 task.spawn(function()
     while true do
-        local success, err = pcall(collectChests)
+        local success, err = pcall(collectRealChests)
         if not success then
-            warn("Ошибка выполнения авто-фарма: " .. tostring(err))
+            warn("Ошибка сбора сундуков: " .. tostring(err))
         end
-        task.wait(5)
+        task.wait(2) -- Пауза между кругами проверок карты
     end
 end)
